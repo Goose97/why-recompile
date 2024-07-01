@@ -554,10 +554,9 @@ defmodule WhyRecompile.DependencyTest do
                  dependency_type: :exports
                })
 
-      # TODO: reverse the order
       assert [
-               %Dependency.Cause{name: :struct_usage, lines_span: {10, 10}},
-               %Dependency.Cause{name: :struct_usage, lines_span: {4, 4}}
+               %Dependency.Cause{name: :struct_usage, lines_span: {4, 4}},
+               %Dependency.Cause{name: :struct_usage, lines_span: {10, 10}}
              ] =
                Dependency.dependency_causes(%{
                  root_folder: "test/fixtures",

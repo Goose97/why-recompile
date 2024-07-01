@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.version.os }}
     name: Test on OTP ${{matrix.version.otp}} / Elixir ${{matrix.version.elixir}} / OS ${{matrix.version.os}}
     strategy:
       matrix:

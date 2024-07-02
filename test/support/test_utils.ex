@@ -76,10 +76,6 @@ defmodule WhyRecompile.TestUtils do
           |> String.split("\n")
           |> List.last()
 
-        # LOG:6615
-        IO.inspect(output, label: "all_output")
-        IO.inspect(manifest_path, label: "manifest_path")
-
         {:ok, Path.join([manifest_path, @manifest])}
 
       {:error, output} ->

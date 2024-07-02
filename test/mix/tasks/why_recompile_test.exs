@@ -1,7 +1,7 @@
-defmodule Mix.TasksTest.WhyRecompile do
+defmodule Mix.Tasks.WhyRecompileTest do
   use ExUnit.Case
 
-  @project_name "why_recompile_test"
+  @project_name "why_recompile_tasks_test"
 
   setup_all do
     File.rm_rf!(@project_name)
@@ -138,16 +138,16 @@ defmodule Mix.TasksTest.WhyRecompile do
       assert to_string(result) |> strip_ansi_code() |> String.contains?(output)
     end
 
-    test "Command with --include-export option" do
-      result = :os.cmd('cd #{@project_name} && mix why_recompile show lib/A.ex --include-export')
+    test "Command with --include-soft option" do
+      result = :os.cmd('cd #{@project_name} && mix why_recompile show lib/A.ex --include-soft')
 
       output = """
-      Compile dependencies:
+      Hard dependencies:
       lib/B.ex
       lib/C.ex
       lib/D.ex
 
-      Export dependencies:
+      Soft dependencies:
       lib/B.ex
       lib/C.ex\
       """

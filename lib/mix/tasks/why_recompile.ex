@@ -56,7 +56,7 @@ defmodule Mix.Tasks.WhyRecompile do
             soft_recompile_dependencies_count: soft_dependencies
           }
         end
-        |> Enum.sort_by(& &1.hard_recompile_dependencies_count, &>=/2)
+        |> Enum.sort_by(&{&1.hard_recompile_dependencies_count, &1.path}, &>=/2)
 
       rows =
         if !Keyword.get(parsed_args, :all, false),
@@ -82,7 +82,7 @@ defmodule Mix.Tasks.WhyRecompile do
   defp show(args) do
     {parsed_args, [file_path], invalid} =
       OptionParser.parse(args,
-        strict: [verbose: :integer, filter: :string, include_export: :boolean],
+        strict: [verbose: :integer, filter: :string, include_soft: :boolean],
         aliases: [v: :verbose, f: :filter]
       )
 
@@ -116,11 +116,11 @@ defmodule Mix.Tasks.WhyRecompile do
 
     verbose_level = Keyword.get(parsed_args, :verbose, 0)
 
-    if parsed_args[:include_export] do
-      bold("Compile dependencies:") |> IO.puts()
+    if parsed_args[:include_soft] do
+      bold("Hard dependencies:") |> IO.puts()
       print_dependencies(parsed_manifest, hard_dependencies, verbose_level)
 
-      bold("\nExport dependencies:") |> IO.puts()
+      bold("\nSoft dependencies:") |> IO.puts()
       print_dependencies(parsed_manifest, soft_dependencies, verbose_level)
     else
       print_dependencies(parsed_manifest, hard_dependencies, verbose_level)
@@ -293,7 +293,7 @@ defmodule Mix.Tasks.WhyRecompile do
     #{bold("show")}   Show the recompile dependencies of a file
 
     Usage:
-      mix why_recompile show [-v | --verbose=<level>] [-f | --filter] [--include-export] <file-path>
+      mix why_recompile show [-v | --verbose=<level>] [-f | --filter] [--include-soft] <file-path>
 
     Option:
       -v, --verbose     The verbosity level
@@ -301,7 +301,7 @@ defmodule Mix.Tasks.WhyRecompile do
         • 2: Same as 1 and print the detailed dependency reason
 
       -f, --filter      Filter the dependency by name, support partial match
-      --include-export  Include export dependencies
+      --include-soft    Include soft dependencies
     """)
   end
 end

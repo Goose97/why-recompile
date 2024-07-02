@@ -1,6 +1,8 @@
 defmodule WhyRecompile.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/Goose97/why-recompile"
+
   def project do
     [
       app: :why_recompile,
@@ -14,7 +16,8 @@ defmodule WhyRecompile.MixProject do
         licenses: ["Apache-2.0"],
         links: %{"Github" => "https://github.com/Goose97/why-recompile"}
       ],
-      aliases: aliases()
+      aliases: aliases(),
+      package: package()
     ]
   end
 
@@ -26,4 +29,12 @@ defmodule WhyRecompile.MixProject do
 
   defp elixirc_paths(:test), do: ["lib", "test/support", "test/fixtures/lib"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp package() do
+    [
+      maintainers: ["Nguyễn Văn Đức"],
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => @source_url}
+    ]
+  end
 end

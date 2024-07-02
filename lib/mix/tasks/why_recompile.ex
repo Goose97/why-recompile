@@ -30,7 +30,7 @@ defmodule Mix.Tasks.WhyRecompile do
       color("Invalid option: #{inspect(invalid)}", :red) |> IO.puts()
       help()
     else
-      graph = WhyRecompile.get_graph()
+      parsed_manifest = WhyRecompile.parse_manifest()
 
       # There are two types of recompile dependencies:
       # 1. hard (compile related): if A has a hard dependency on B and B recompiled, then DEFINITELY A will be recompiled
@@ -39,7 +39,7 @@ defmodule Mix.Tasks.WhyRecompile do
       # Struct dependency is one of the soft dependencies example. A uses struct defined in B. If B
       # recompiled without changing the struct definition, A WON'T have to recompile.
       rows =
-        for vertex <- graph do
+        for vertex <- parsed_manifest.graph do
           hard_dependencies =
             vertex.recompile_dependencies
             |> Enum.filter(fn %{reason: reason} -> reason in [:compile, :compile_then_runtime] end)
@@ -86,42 +86,48 @@ defmodule Mix.Tasks.WhyRecompile do
         aliases: [v: :verbose, f: :filter]
       )
 
-    verbose_level = Keyword.get(parsed_args, :verbose, 0)
-
     if invalid != [] do
       color("Invalid option: #{inspect(invalid)}", :red) |> IO.puts()
       help()
     else
-      graph = WhyRecompile.get_graph()
-      vertex = Enum.find(graph, fn vertex -> vertex.id == file_path end)
+      parsed_manifest = WhyRecompile.parse_manifest()
+      vertex = Enum.find(parsed_manifest.graph, fn vertex -> vertex.id == file_path end)
 
-      dependencies =
-        if parsed_args[:filter] do
-          Enum.filter(vertex.recompile_dependencies, fn %{path: path} ->
-            String.contains?(path, parsed_args[:filter])
-          end)
-        else
-          vertex.recompile_dependencies
-        end
-
-      {hard_dependencies, soft_dependencies} =
-        Enum.split_with(dependencies, fn %{reason: reason} ->
-          reason in [:compile, :compile_then_runtime]
-        end)
-
-      if parsed_args[:include_export] do
-        bold("Compile dependencies:") |> IO.puts()
-        print_dependencies(hard_dependencies, verbose_level)
-
-        bold("\nExport dependencies:") |> IO.puts()
-        print_dependencies(soft_dependencies, verbose_level)
-      else
-        print_dependencies(hard_dependencies, verbose_level)
-      end
+      if vertex,
+        do: do_show(parsed_manifest, vertex, parsed_args),
+        else: color("File not found: #{file_path}", :red) |> IO.puts()
     end
   end
 
-  defp print_dependencies(dependencies, verbose_level) do
+  defp do_show(parsed_manifest, vertex, parsed_args) do
+    dependencies =
+      if parsed_args[:filter] do
+        Enum.filter(vertex.recompile_dependencies, fn %{path: path} ->
+          String.contains?(path, parsed_args[:filter])
+        end)
+      else
+        vertex.recompile_dependencies
+      end
+
+    {hard_dependencies, soft_dependencies} =
+      Enum.split_with(dependencies, fn %{reason: reason} ->
+        reason in [:compile, :compile_then_runtime]
+      end)
+
+    verbose_level = Keyword.get(parsed_args, :verbose, 0)
+
+    if parsed_args[:include_export] do
+      bold("Compile dependencies:") |> IO.puts()
+      print_dependencies(parsed_manifest, hard_dependencies, verbose_level)
+
+      bold("\nExport dependencies:") |> IO.puts()
+      print_dependencies(parsed_manifest, soft_dependencies, verbose_level)
+    else
+      print_dependencies(parsed_manifest, hard_dependencies, verbose_level)
+    end
+  end
+
+  defp print_dependencies(parsed_manifest, dependencies, verbose_level) do
     Enum.with_index(dependencies)
     |> Enum.each(fn {dependency, index} ->
       %{
@@ -136,7 +142,7 @@ defmodule Mix.Tasks.WhyRecompile do
       if verbose_level >= 2 do
         new_line()
 
-        WhyRecompile.get_detailed_explanation(dependency_chain)
+        WhyRecompile.get_detailed_explanation(parsed_manifest, dependency_chain)
         |> print_dependency_link_explanation()
       end
 

@@ -528,9 +528,10 @@ defmodule WhyRecompile.DependencyTest do
 
   # Use sources_set_4
   describe "WhyRecompile.Dependency.dependency_causes/1" do
-    test "Exports dependency causes" do
-      {:ok, manifest_path} = TestUtils.fixtures_manifest()
-
+    test "Exports dependency causes", %{
+      modules_map: modules_map,
+      source_files_map: source_files_map
+    } do
       assert [
                %Dependency.Cause{name: :import, lines_span: {2, 2}},
                %Dependency.Cause{name: :import, lines_span: {5, 5}}
@@ -539,7 +540,8 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A1.ex",
                  sink_file: "lib/cause/A2.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :exports
                })
 
@@ -550,7 +552,8 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A1.ex",
                  sink_file: "lib/cause/A3.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :exports
                })
 
@@ -562,14 +565,16 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A2.ex",
                  sink_file: "lib/cause/A3.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :exports
                })
     end
 
-    test "Compile dependency causes" do
-      {:ok, manifest_path} = TestUtils.fixtures_manifest()
-
+    test "Compile dependency causes", %{
+      modules_map: modules_map,
+      source_files_map: source_files_map
+    } do
       assert [
                %Dependency.Cause{name: :macro, lines_span: {6, 6}}
              ] =
@@ -577,7 +582,8 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A4.ex",
                  sink_file: "lib/cause/A5.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :compile
                })
 
@@ -589,7 +595,8 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A4.ex",
                  sink_file: "lib/cause/A6.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :compile
                })
 
@@ -602,7 +609,8 @@ defmodule WhyRecompile.DependencyTest do
                  root_folder: "test/fixtures",
                  source_file: "lib/cause/A7.ex",
                  sink_file: "lib/cause/A8.ex",
-                 manifest: manifest_path,
+                 modules_map: modules_map,
+                 source_files_map: source_files_map,
                  dependency_type: :compile
                })
     end
@@ -619,7 +627,7 @@ defmodule WhyRecompile.DependencyTest do
     :ok = TestUtils.add_load_path()
 
     {:ok, manifest_path} = TestUtils.fixtures_manifest()
-    graph = Graph.build(manifest_path)
-    Map.put(context, :graph, graph)
+    result = Graph.build(manifest_path)
+    Map.merge(context, result)
   end
 end

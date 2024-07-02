@@ -222,6 +222,14 @@ defmodule Mix.TasksTest.WhyRecompile do
       assert to_string(result1) |> String.contains?("#{IO.ANSI.green()}5         A.x()")
       assert to_string(result2) |> String.contains?("#{IO.ANSI.green()}5         A.x()")
     end
+
+    test "File not found" do
+      result = :os.cmd('cd #{@project_name} && mix why_recompile show lib/NotFound.ex')
+
+      output = "File not found: lib/NotFound.ex"
+
+      assert to_string(result) |> strip_ansi_code() |> String.contains?(output)
+    end
   end
 
   defp strip_ansi_code(string) do

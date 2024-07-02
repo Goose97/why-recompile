@@ -24,7 +24,7 @@ defmodule WhyRecompile.Dependency do
   functions don't change, the source file won't recompile. Scenario 3 and 4 above fell into this type.
   """
 
-  alias WhyRecompile.{SourceFile, Manifest, SourceParser}
+  alias WhyRecompile.SourceParser
   @type dependency_type :: :compile | :exports | :runtime
   @type dependency_reason :: :compile | :exports_then_compile | :exports | :compile_then_runtime
 
@@ -127,7 +127,8 @@ defmodule WhyRecompile.Dependency do
   @type dependency_causes_params :: %{
           source_file: WhyRecompile.file_path(),
           sink_file: WhyRecompile.file_path(),
-          manifest: binary(),
+          modules_map: %{atom() => WhyRecompile.Module.t()},
+          source_files_map: %{WhyRecompile.file_path() => WhyRecompile.SourceFile.t()},
           dependency_type: WhyRecompile.dependency_type()
         }
   @spec dependency_causes(dependency_causes_params()) :: [
@@ -144,7 +145,8 @@ defmodule WhyRecompile.Dependency do
     %{
       source_file: source_file,
       sink_file: sink_file,
-      manifest: manifest
+      modules_map: modules_map,
+      source_files_map: source_files_map
     } = params
 
     absolute_source_file =
@@ -172,7 +174,9 @@ defmodule WhyRecompile.Dependency do
       end
 
     import_or_require =
-      import_or_require_causes(manifest, source_file, sink_file, root_folder: params[:root_folder])
+      import_or_require_causes(source_file, sink_file, modules_map, source_files_map,
+        root_folder: params[:root_folder]
+      )
 
     import_or_require ++ struct_usages
   end
@@ -182,11 +186,10 @@ defmodule WhyRecompile.Dependency do
     %{
       source_file: source_file,
       sink_file: sink_file,
-      manifest: manifest
+      source_files_map: source_files_map
     } = params
 
-    file_lookup_table = WhyRecompile.SourceFile.build_lookup_table(manifest)
-    %{modules: source_modules} = SourceFile.lookup!(file_lookup_table, source_file)
+    %{modules: source_modules} = Map.get(source_files_map, source_file)
 
     absolute_source_file =
       if params[:root_folder],
@@ -207,7 +210,7 @@ defmodule WhyRecompile.Dependency do
 
     # This is a minor optimization. We could check if our sink module gets import/require
     # If it's not, then we are sure that there're no macro usages
-    %{modules: sink_modules} = SourceFile.lookup!(file_lookup_table, sink_file)
+    %{modules: sink_modules} = Map.get(source_files_map, sink_file)
 
     macro_causes =
       Enum.filter(sink_modules, &(&1 in require_list or &1 in import_list))
@@ -237,11 +240,8 @@ defmodule WhyRecompile.Dependency do
     macro_causes ++ compile_time_invocation_causes
   end
 
-  defp import_or_require_causes(manifest, source_file, sink_file, opts) do
-    file_lookup_table = WhyRecompile.SourceFile.build_lookup_table(manifest)
-    manifest_lookup_table = Manifest.build_lookup_table(manifest)
-
-    %{modules: modules} = SourceFile.lookup!(file_lookup_table, source_file)
+  defp import_or_require_causes(source_file, sink_file, modules_map, source_files_map, opts) do
+    %{modules: modules} = Map.get(source_files_map, source_file)
 
     absolute_source_file =
       if opts[:root_folder],
@@ -254,8 +254,8 @@ defmodule WhyRecompile.Dependency do
           SourceParser.scan_module_exprs(absolute_source_file, module, :import)
           |> Enum.uniq_by(& &1.module)
           |> Enum.map(fn %{expr: expr, module: target_module} ->
-            case Manifest.lookup_module(manifest_lookup_table, target_module) do
-              {:ok, %{source_paths: source_paths}} ->
+            case Map.get(modules_map, target_module) do
+              %{source_paths: source_paths} ->
                 {expr, source_paths}
 
               _ ->
@@ -267,8 +267,8 @@ defmodule WhyRecompile.Dependency do
           SourceParser.scan_module_exprs(absolute_source_file, module, :require)
           |> Enum.uniq_by(& &1.module)
           |> Enum.map(fn %{expr: expr, module: target_module} ->
-            case Manifest.lookup_module(manifest_lookup_table, target_module) do
-              {:ok, %{source_paths: source_paths}} ->
+            case Map.get(modules_map, target_module) do
+              %{source_paths: source_paths} ->
                 {expr, source_paths}
 
               _ ->

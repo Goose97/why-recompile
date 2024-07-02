@@ -12,51 +12,50 @@ defmodule WhyRecompile.Graph do
           dependency_type: dependency_type
         }
 
-  @spec build(manifest :: binary()) :: :digraph.graph()
   def build(manifest) do
     graph = :digraph.new()
-    manifest_lookup = Manifest.build_lookup_table(manifest)
-    sourceFiles = Manifest.all_source_files(manifest_lookup)
+    {modules_map, source_files_map} = Manifest.parse(manifest)
 
-    Enum.each(sourceFiles, fn sourceFile ->
-      :digraph.add_vertex(graph, sourceFile.path)
+    Enum.each(source_files_map, fn {_, source_file} ->
+      :digraph.add_vertex(graph, source_file.path)
     end)
 
-    Enum.each(sourceFiles, fn sourceFile ->
-      :digraph.add_vertex(graph, sourceFile.path)
+    Enum.each(source_files_map, fn {_, source_file} ->
+      :digraph.add_vertex(graph, source_file.path)
 
       Enum.each(
-        sourceFile.compile_references,
+        source_file.compile_references,
         fn module ->
-          with {:ok, %{source_paths: source_paths}} <-
-                 Manifest.lookup_module(manifest_lookup, module) do
-            Enum.each(source_paths, &:digraph.add_edge(graph, sourceFile.path, &1, :compile))
+          with %{source_paths: source_paths} <- Map.get(modules_map, module) do
+            Enum.each(source_paths, &:digraph.add_edge(graph, source_file.path, &1, :compile))
           end
         end
       )
 
       Enum.each(
-        sourceFile.export_references,
+        source_file.export_references,
         fn module ->
-          with {:ok, %{source_paths: source_paths}} <-
-                 Manifest.lookup_module(manifest_lookup, module) do
-            Enum.each(source_paths, &:digraph.add_edge(graph, sourceFile.path, &1, :exports))
+          with %{source_paths: source_paths} <- Map.get(modules_map, module) do
+            Enum.each(source_paths, &:digraph.add_edge(graph, source_file.path, &1, :exports))
           end
         end
       )
 
       Enum.each(
-        sourceFile.runtime_references,
+        source_file.runtime_references,
         fn module ->
-          with {:ok, %{source_paths: source_paths}} <-
-                 Manifest.lookup_module(manifest_lookup, module) do
-            Enum.each(source_paths, &:digraph.add_edge(graph, sourceFile.path, &1, :runtime))
+          with %{source_paths: source_paths} <- Map.get(modules_map, module) do
+            Enum.each(source_paths, &:digraph.add_edge(graph, source_file.path, &1, :runtime))
           end
         end
       )
     end)
 
-    graph
+    %{
+      graph: graph,
+      modules_map: modules_map,
+      source_files_map: source_files_map
+    }
   end
 
   @spec summarize(:digraph.graph()) :: [%{id: WhyRecompile.file_path(), edges: [edge]}]

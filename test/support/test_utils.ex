@@ -53,7 +53,13 @@ defmodule WhyRecompile.TestUtils do
   def add_load_path() do
     case run_mix_shell(~s/mix run -e "Mix.Project.compile_path() |> Mix.Shell.IO.info()"/) do
       {:ok, output} ->
-        :code.add_path(String.to_charlist(output))
+        compile_path =
+          output
+          |> String.trim_trailing()
+          |> String.split("\n")
+          |> List.last()
+
+        :code.add_path(String.to_charlist(compile_path))
         :ok
 
       {:error, output} ->
@@ -64,7 +70,17 @@ defmodule WhyRecompile.TestUtils do
   def fixtures_manifest() do
     case run_mix_shell(~s/mix run -e "Mix.Project.manifest_path() |> Mix.Shell.IO.info()"/) do
       {:ok, output} ->
-        {:ok, Path.join([output, @manifest])}
+        manifest_path =
+          output
+          |> String.trim_trailing()
+          |> String.split("\n")
+          |> List.last()
+
+        # LOG:6615
+        IO.inspect(output, label: "all_output")
+        IO.inspect(manifest_path, label: "manifest_path")
+
+        {:ok, Path.join([manifest_path, @manifest])}
 
       {:error, output} ->
         {:error, output}
@@ -81,24 +97,15 @@ defmodule WhyRecompile.TestUtils do
         fn output -> send(self(), {ref, output}) end
       )
 
-    receive do
-      {^ref, output} ->
-        output = String.trim(output)
-        if exit_code == 0, do: {:ok, output}, else: {:error, output}
-    after
-      0 ->
-        raise RuntimeError,
-          message: "#{__MODULE__}.run_mix_shell: expect to receive a message, instead got none"
-    end
+    output = receive_stream_response(ref)
+    if exit_code == 0, do: {:ok, output}, else: {:error, output}
   end
 
-  defp receive_stream_response(ref, acc \\ "") do
+  defp receive_stream_response(ref, buffer \\ []) do
     receive do
-      {^ref, output} ->
-        receive_stream_response(ref, acc <> output)
+      {^ref, output} -> receive_stream_response(ref, [buffer | output])
     after
-      0 ->
-        acc
+      0 -> IO.iodata_to_binary(buffer)
     end
   end
 end

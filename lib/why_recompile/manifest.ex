@@ -3,62 +3,91 @@ defmodule WhyRecompile.Manifest do
   Module contains utilities to quickly query the manifest file
   """
 
-  @spec build_lookup_table(WhyRecompile.file_path()) :: :ets.tid()
-  def build_lookup_table(manifest) do
-    table_ref = :ets.new(Module.concat(__MODULE__, LookupTable), [:set])
+  @spec parse(WhyRecompile.file_path()) ::
+          {%{atom() => WhyRecompile.Module.t()}, %{binary() => WhyRecompile.SourceFile.t()}}
+  def parse(manifest) do
     {modules, sources} = read_manifest(manifest)
-
-    Enum.each(modules, fn module ->
-      struct = WhyRecompile.Module.from_record(module)
-      :ets.insert(table_ref, {struct.module, struct, :module})
-    end)
-
-    Enum.each(sources, fn source ->
-      struct = WhyRecompile.SourceFile.from_record(source)
-      :ets.insert(table_ref, {struct.path, struct, :source_file})
-    end)
-
-    table_ref
+    {to_modules_map(modules), to_source_files_map(sources)}
   end
 
-  def delete_lookup_table(table_ref), do: :ets.delete(table_ref)
+  version = System.version()
+  regex = ~r/^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)/
+  %{"major" => major, "minor" => minor, "patch" => patch} = Regex.named_captures(regex, version)
+  version_triplet = {String.to_integer(major), String.to_integer(minor), String.to_integer(patch)}
 
-  @spec lookup_module(:ets.tid(), atom()) :: {:ok, WhyRecompile.Module.t()} | {:error, atom()}
-  def lookup_module(table_ref, module) when is_atom(module) do
-    case :ets.lookup(table_ref, module) do
-      [{_, struct, :module}] -> {:ok, struct}
-      _ -> {:error, :not_found}
+  if version_triplet >= {1, 16, 0} do
+    require Mix.Compilers.Elixir
+
+    defp to_modules_map(records) do
+      for {module, record} <- records, into: %{} do
+        Mix.Compilers.Elixir.module(sources: sources) = record
+
+        struct = %WhyRecompile.Module{
+          module: module,
+          source_paths: sources
+        }
+
+        {module, struct}
+      end
     end
-  end
 
-  @spec lookup_module!(:ets.tid(), atom()) :: WhyRecompile.Module.t()
-  def lookup_module!(table_ref, module) when is_atom(module) do
-    case lookup_module(table_ref, module) do
-      {:ok, struct} ->
-        struct
+    defp to_source_files_map(records) do
+      for {path, record} <- records, into: %{} do
+        Mix.Compilers.Elixir.source(
+          modules: modules,
+          compile_references: compile_references,
+          export_references: export_references,
+          runtime_references: runtime_references
+        ) = record
 
-      {:error, error} ->
-        raise RuntimeError,
-          message: "#{__MODULE__}.lookup_module!: encounter error #{inspect(error)}"
+        struct = %WhyRecompile.SourceFile{
+          path: path,
+          modules: modules,
+          compile_references: compile_references,
+          export_references: export_references,
+          runtime_references: runtime_references
+        }
+
+        {path, struct}
+      end
     end
-  end
+  else
+    require Mix.Compilers.Elixir
 
-  @spec lookup_source_file!(:ets.tid(), binary()) :: WhyRecompile.SourceFile.t()
-  def lookup_source_file!(table_ref, path) when is_binary(path) do
-    [{_, struct, :source_file}] = :ets.lookup(table_ref, path)
-    struct
-  end
+    defp to_modules_map(records) do
+      for record <- records, into: %{} do
+        Mix.Compilers.Elixir.module(module: module, sources: sources) = record
 
-  def all_modules(table_ref) do
-    # Compiled from :ets.fun2ms(fn {_, struct, :module} -> struct end)
-    match_spec = [{{:_, :"$1", :module}, [], [:"$1"]}]
-    :ets.select(table_ref, match_spec)
-  end
+        struct = %WhyRecompile.Module{
+          module: module,
+          source_paths: sources
+        }
 
-  def all_source_files(table_ref) do
-    # Compiled from :ets.fun2ms(fn {_, struct, :source_file} -> struct end)
-    match_spec = [{{:_, :"$1", :source_file}, [], [:"$1"]}]
-    :ets.select(table_ref, match_spec)
+        {module, struct}
+      end
+    end
+
+    defp to_source_files_map(records) do
+      for record <- records, into: %{} do
+        Mix.Compilers.Elixir.source(
+          source: path,
+          modules: modules,
+          compile_references: compile_references,
+          export_references: export_references,
+          runtime_references: runtime_references
+        ) = record
+
+        struct = %WhyRecompile.SourceFile{
+          path: path,
+          modules: modules,
+          compile_references: compile_references,
+          export_references: export_references,
+          runtime_references: runtime_references
+        }
+
+        {path, struct}
+      end
+    end
   end
 
   # Copy from Mix.Compilers.Elixir module

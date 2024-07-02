@@ -75,7 +75,7 @@ defmodule WhyRecompile.SourceParserTest do
         defmodule Import.B3 do
           def x() do
             import Import.B2
-            require Import.B3
+            require Import.B2
 
             1
           end
@@ -206,7 +206,7 @@ defmodule WhyRecompile.SourceParserTest do
           # Should be arity-aware
           def x(), do: y1(1)
 
-          def x1(), do: y1
+          def x1(), do: y1()
         end
         """,
         "lib/source_parser/D5.ex"

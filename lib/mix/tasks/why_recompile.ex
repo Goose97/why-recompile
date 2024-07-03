@@ -42,21 +42,32 @@ defmodule Mix.Tasks.WhyRecompile do
         for vertex <- parsed_manifest.graph do
           hard_dependencies =
             vertex.recompile_dependencies
-            |> Enum.filter(fn %{reason: reason} -> reason in [:compile, :compile_then_runtime] end)
-            |> Enum.count()
+            |> Stream.filter(fn %{reason: reason} ->
+              reason in [:compile, :compile_then_runtime]
+            end)
+            |> Enum.uniq_by(& &1.path)
 
-          soft_dependencies =
+          hard_dependencies_path = MapSet.new(Enum.map(hard_dependencies, & &1.path))
+
+          soft_dependencies_count =
             vertex.recompile_dependencies
-            |> Enum.filter(fn %{reason: reason} -> reason in [:exports, :exports_then_compile] end)
+            |> Stream.filter(fn %{reason: reason} ->
+              reason in [:exports, :exports_then_compile]
+            end)
+            |> Stream.reject(&MapSet.member?(hard_dependencies_path, &1.path))
+            |> Stream.uniq_by(& &1.path)
             |> Enum.count()
 
           %{
             path: vertex.id,
-            hard_recompile_dependencies_count: hard_dependencies,
-            soft_recompile_dependencies_count: soft_dependencies
+            hard_recompile_dependencies_count: length(hard_dependencies),
+            soft_recompile_dependencies_count: soft_dependencies_count
           }
         end
-        |> Enum.sort_by(&{&1.hard_recompile_dependencies_count, &1.path}, &>=/2)
+        |> Enum.sort_by(
+          &{&1.hard_recompile_dependencies_count, &1.soft_recompile_dependencies_count, &1.path},
+          &>=/2
+        )
 
       rows =
         if !Keyword.get(parsed_args, :all, false),

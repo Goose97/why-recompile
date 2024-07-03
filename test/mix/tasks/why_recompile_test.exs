@@ -81,7 +81,7 @@ defmodule Mix.Tasks.WhyRecompileTest do
       ------------+-----------------------------+----------------------------------
        File path  | Number of recompile files   | Number of MAYBE recompile files  
       ------------+-----------------------------+----------------------------------
-       lib/A.ex   | 3                           | 2                                
+       lib/A.ex   | 3                           | 0                                
        lib/C.ex   | 1                           | 0                                
       ------------+-----------------------------+----------------------------------\
       """
@@ -97,7 +97,7 @@ defmodule Mix.Tasks.WhyRecompileTest do
       ------------+-----------------------------+----------------------------------
        File path  | Number of recompile files   | Number of MAYBE recompile files  
       ------------+-----------------------------+----------------------------------
-       lib/A.ex   | 3                           | 2                                
+       lib/A.ex   | 3                           | 0                                
        lib/C.ex   | 1                           | 0                                
        lib/D.ex   | 0                           | 0                                
        lib/B.ex   | 0                           | 0                                
@@ -116,7 +116,7 @@ defmodule Mix.Tasks.WhyRecompileTest do
       ------------+-----------------------------+----------------------------------
        File path  | Number of recompile files   | Number of MAYBE recompile files  
       ------------+-----------------------------+----------------------------------
-       lib/A.ex   | 3                           | 2                                
+       lib/A.ex   | 3                           | 0                                
       ------------+-----------------------------+----------------------------------\
       """
 

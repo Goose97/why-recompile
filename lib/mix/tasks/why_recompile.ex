@@ -180,53 +180,21 @@ defmodule Mix.Tasks.WhyRecompile do
     end)
   end
 
-  [
-    %{
-      sink: "lib/fixtures/D2.ex",
-      snippets: [
-        %{
-          content:
-            "defmodule D1 do\n  require D2\n\n  def x(), do: D2.x()\n\n  def y(), do: %D2{a: 1}\nend\n",
-          file: "lib/fixtures/D1.ex",
-          highlight: {4, 4},
-          lines_span: {1, 7}
-        }
-      ],
-      source: "lib/fixtures/D1.ex",
-      type: :compile
-    },
-    %{
-      sink: "lib/fixtures/D3.ex",
-      snippets: [
-        %{
-          content: "    end\n  end\n\n  defstruct [:a]\n\n  def z(), do: D3.z()\nend\n",
-          file: "lib/fixtures/D2.ex",
-          highlight: {14, 14},
-          lines_span: {9, 15}
-        },
-        %{
-          content:
-            "defmodule D2 do\n  require D3\n\n  defmacro x() do\n    x = D3.y()\n\n    quote do\n      unquote(x) + 2\n    end\n  end\n",
-          file: "lib/fixtures/D2.ex",
-          highlight: {5, 5},
-          lines_span: {1, 10}
-        }
-      ],
-      source: "lib/fixtures/D2.ex",
-      type: :compile
-    }
-  ]
-
   defp print_dependency_link_explanation(explanation) do
     Enum.with_index(explanation)
     |> Enum.each(fn {item, index} ->
       puts_offset("#{index + 1}. #{item.source} ────➤ #{item.sink} (#{item.type})", 2)
 
-      Enum.with_index(item.snippets)
-      |> Enum.each(fn {snippet, index} ->
-        print_code_snippet(snippet)
-        if index != length(item.snippets) - 1, do: new_line()
-      end)
+      if item.snippets == [] do
+        italic("No code snippets found")
+        |> puts_offset(2)
+      else
+        Enum.with_index(item.snippets)
+        |> Enum.each(fn {snippet, index} ->
+          print_code_snippet(snippet)
+          if index != length(item.snippets) - 1, do: new_line()
+        end)
+      end
 
       if index != length(explanation) - 1, do: new_line()
     end)

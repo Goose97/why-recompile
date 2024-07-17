@@ -138,26 +138,39 @@ defmodule Mix.Tasks.WhyRecompile do
     end
   end
 
-  defp print_dependencies(parsed_manifest, dependencies, verbose_level) do
-    Enum.with_index(dependencies)
-    |> Enum.each(fn {dependency, index} ->
-      %{
-        path: path,
-        dependency_chain: dependency_chain
-      } = dependency
-
+  defp print_dependencies(_parsed_manifest, dependencies, 0) do
+    Enum.group_by(dependencies, & &1.path)
+    |> Enum.each(fn {path, _dependencies} ->
       IO.puts(color(path, :magenta))
+    end)
+  end
 
-      if verbose_level >= 1, do: print_dependency_chain(dependency_chain)
+  defp print_dependencies(parsed_manifest, dependencies, verbose_level) do
+    # Each dependency can have multiple path
+    Enum.group_by(dependencies, & &1.path)
+    |> Enum.each(fn {_path, dependencies} ->
+      Enum.with_index(dependencies)
+      |> Enum.each(fn {dependency, index} ->
+        path =
+          if length(dependencies) > 1,
+            do: "#{dependency.path} (#{index + 1})",
+            else: dependency.path
 
-      if verbose_level >= 2 do
-        new_line()
+        IO.puts(color(path, :magenta))
 
-        WhyRecompile.get_detailed_explanation(parsed_manifest, dependency_chain)
-        |> print_dependency_link_explanation()
-      end
+        if verbose_level >= 1 do
+          print_dependency_chain(dependency.dependency_chain)
+        end
 
-      if verbose_level >= 1 && index != length(dependencies) - 1, do: new_line()
+        if verbose_level >= 2 do
+          new_line()
+
+          WhyRecompile.get_detailed_explanation(parsed_manifest, dependency.dependency_chain)
+          |> print_dependency_link_explanation()
+        end
+
+        if verbose_level >= 1, do: new_line()
+      end)
     end)
   end
 
